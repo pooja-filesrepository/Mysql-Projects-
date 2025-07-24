@@ -1,0 +1,158 @@
+Air Cargo Analysis 
+
+-- 1 Create aircargo database and querying to start using it
+create database aircargo;
+use aircargo;
+select database();
+
+-- 2 Write a query to create 4 tables such as customer, pof, routes, ticket_details using suitable data types for the fields and insert the data using import wizard.
+Implement the required check constraint and unique constraint.  
+
+drop table if exists customer;
+CREATE TABLE if not exists customer (
+  customer_id int,
+  first_name varchar(100) NOT NULL,
+  last_name varchar(100) DEFAULT NULL,
+  date_of_birth date NOT NULL,
+  gender varchar(1) NOT NULL,
+  PRIMARY KEY (customer_id),
+  CONSTRAINT Gender_check CHECK ((gender in ('M','F','O')))
+);
+
+
+describe customer;
+
+CREATE TABLE passengers_on_flights (
+  customer_id int NOT NULL,
+  aircraft_id varchar(100) NOT NULL,
+  route_id int NOT NULL,
+  depart varchar(3) NOT NULL,
+  arrival varchar(3) NOT NULL,
+  seat_num varchar(10) DEFAULT NULL,
+  class_id varchar(100) DEFAULT NULL,
+  travel_date date DEFAULT NULL,
+  flight_num int NOT NULL,
+  KEY customer_id (customer_id),
+  KEY route (route_id),
+  CONSTRAINT pof_ibfk_1 FOREIGN KEY (customer_id) REFERENCES customer (customer_id),
+  CONSTRAINT pof_ibfk_2 FOREIGN KEY (route_id) REFERENCES routes (route_id) 
+);
+
+CREATE TABLE routes (
+  route_id int NOT NULL,
+  flight_num int NOT NULL,
+  origin_airport varchar(3) NOT NULL,
+  destination_airport varchar(100) NOT NULL,
+  aircraft_id varchar(100) NOT NULL,
+  distance_miles int NOT NULL,
+  PRIMARY KEY (route_id),
+  CONSTRAINT Flight_number_check CHECK ((substr(flight_num,1,2) = 11)),
+  CONSTRAINT routes_chk_1 CHECK ((distance_miles > 0))
+);
+
+CREATE TABLE ticket_details (
+  p_date date NOT NULL,
+  customer_id int NOT NULL,
+  aircraft_id varchar(100) NOT NULL,
+  class_id varchar(100) DEFAULT NULL,
+  no_of_tickets int DEFAULT NULL,
+  a_code varchar(3) DEFAULT NULL,
+  Price_per_ticket int DEFAULT NULL,
+  brand varchar(100) DEFAULT NULL,
+  KEY customer_id (customer_id),
+  CONSTRAINT ticket_details_ibfk_1 FOREIGN KEY (customer_id) REFERENCES customer (customer_id)
+);
+
+# check our created table 
+select * from customer;
+select * from routes;
+select * from ticket_details;
+select * from passengers_on_flights;
+
+-- 3.	Write a query to display all the passengers (customers) who have travelled in routes 01 to 25. Take the data from the passengers_on_flights table.
+
+select c.first_name, c.last_name, c.gender from customer c 
+left join passenger_on_flights f
+on c.customer_id=f.customer_id 
+where route_id between 1 and 25;
+
+-- 4 	Write a query to identify the number of passengers and total revenue in business class from the ticket_details table.
+
+select count(customer_id), sum(price_per_ticket) as total_cost from ticket_details
+where class_id = 'Business';
+
+-- 5.	Write a query to display the full name of the customer by extracting the first name and last name from the customer table.
+
+select concat(first_name,' ',last_name) as full_name 
+from customer;
+
+-- 6.	Write a query to extract the customers who have registered and booked a ticket. Use data from the customer and ticket_details tables.
+
+select * from customer c where customer_id in 
+(select customer_id from ticket_details m where c.customer_id=m.customer_id);
+
+-- 7.	Write a query to identify the customer’s first name and last name based on their customer ID and brand (Emirates) from the ticket_details table.
+
+select gender ,concat(first_name,' ',last_name) as full_name from customer c
+left join ticket_details t
+on c.customer_id=t.customer_id
+where brand='Emirates'
+group by c.customer_id, t.brand;
+
+-- 8.	Write a query to identify the customers who have travelled by Economy Plus class using Group By and Having clause on the passengers_on_flights table.
+
+select count(customer_id) as toatl_customers from passenger_on_flights
+group by class_id
+having class_id = 'Economy Plus';
+
+-- 9.	Write a query to identify whether the revenue has crossed 10000 using the IF clause on the ticket_details table.
+
+select if(sum(price_per_ticket)>10000,'Making Good Revenue','Going In Loss')
+as revenue from ticket_details;
+
+-- 10.	Write a query to create and grant access to a new user to perform operations on a database.
+
+create user 'account'@'localhost' identified by '<pooja0000>';
+grant all privileges on ac.* to 'account'@'localhost';
+
+-- 11.	Write a query to find the maximum ticket price for each class using window functions on the ticket_details table.
+
+select customer_id, p_date, brand, max(price_per_ticket)
+over(partition by class_id) as max_price_per_ticket
+from ticket_details;
+
+-- 12.	 Creating a procedure to analyze if the distance travelled by a aircraft on particular route is Short distance, intermediate distance or long distance travel
+
+show procedure status where db = 'aircargo';
+drop procedure if exists Distance_info;
+
+delimiter //
+create procedure distance_info(in route int, out info varchar(200))
+begin
+declare x int;
+select distance_miles into x from routes where route_id = route;
+if x < 2000 then set info = 'Short Distance Travel';
+elseif x between 2000 and 6500 then set info = 'Intermediate Distance travel';
+elseif x >=6500 then set info = 'Long Distance Travel';
+end if;
+end//
+delimiter ;
+
+-- Executing Created procedure using call keyword
+call distance_info(10,@information);
+select @information as Status;
+
+-- 13 Fetch the  max ticket price for each class
+
+with cte as (
+select class_id, max(price_per_ticket) as Maximum_price, 
+dense_rank () over (partition by class_id) as dense
+from ticket_details
+group by class_id)
+select class_id, Maximum_price from cte where dense = 1;
+
+select brand, class_id, price_per_ticket, max(price_per_ticket) over(partition by class_id ) from ticket_details
+order by 2;
+
+
+
