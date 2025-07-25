@@ -1,6 +1,6 @@
 Air Cargo Analysis 
 
--- 1 Create aircargo database and querying to start using it
+-- 1 Create aircargo database 
 create database aircargo;
 use aircargo;
 select database();
