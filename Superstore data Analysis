@@ -1,0 +1,213 @@
+Superstore Dataset Analysis 
+
+-- 1 Create mysql_projects database 
+
+create database if not exists mysql_projects;
+use mysql_projects;
+select database();
+
+-- 2 Write a query to create a Superstore table.Implement the required check constraint and unique constraint.  
+
+create table if not exists superstore (
+Order_id varchar(250) not null,
+Order_date varchar(250) not null,
+Ship_date varchar(250) not null,
+Ship_mode varchar(250) not null,
+Customer_id varchar(250) not null,
+Customer_name varchar(250) not null,
+Segment varchar(250) not null,
+Country varchar(250) not null,
+City varchar(250) not null,
+State varchar(250) not null,
+Postal_Code int not null,
+Region varchar(250) not null,
+Product_id varchar(250) not null,
+Category varchar(250) not null,
+Sub_category varchar(250) not null,
+Product_name varchar(250) not null,
+Sales decimal(10,2) not null,
+Quantity decimal(10,2) not null,
+Discount decimal(10,2) not null,
+Profit decimal(10,2) not null,
+Shipping_cost decimal(10,2) not null, 
+Market varchar(250) not null,
+Order_priority varchar(250) not null,
+primary key (Order_id));
+
+-- 3. check the dataset 
+
+desc superstore;
+select * from superstore;
+
+-- 4. Modification 
+
+ALTER TABLE superstore ADD COLUMN Order_date_temp DATE,
+add column Ship_date_temp date;
+
+UPDATE superstore
+SET Order_date_temp = STR_TO_DATE(Order_date, '%d-%m-%Y');
+
+UPDATE superstore
+SET Ship_date_temp = STR_TO_DATE(Order_date, '%d-%m-%Y');
+
+ALTER TABLE superstore 
+DROP PRIMARY KEY;
+
+-- 5. Do some preliminary Analysis on the dataset
+
+# check for duplicate primary key 
+select Order_id, count(*) from superstore 
+group by Order_id
+having count(*) > 1;
+
+# check for data structure and its data types 
+desc superstore;
+
+# To count total records in the data 
+select count(*) from superstore;
+
+# check for null values 
+SELECT * FROM superstore
+WHERE Order_id IS NULL OR Order_date IS NULL OR Ship_date IS NULL OR Ship_mode IS NULL OR
+Customer_id IS NULL OR Customer_name IS NULL OR Segment IS NULL OR Country IS NULL OR
+City IS NULL OR State IS NULL OR Postal_Code IS NULL;
+
+
+
+
+-- 6. A) Important KPIs - 
+
+# Total Orders
+SELECT Round(sum(Quantity),0) AS avg_Profit FROM superstore;
+
+# Total Sales 
+select sum(Sales) as total_sales from superstore;
+
+# Total Gross Revenue 
+select round(sum(Sales*Quantity),0) as Gross_revenue from superstore;
+
+# Average Profit 
+SELECT Round(avg(Profit),0) AS avg_Profit FROM superstore;
+
+# Total Profit 
+select sum(Profit) as total_profit from superstore;
+
+# Profit Margin (%)
+SELECT ROUND(SUM(Profit)/SUM(Sales)*100, 2) AS Profit_Margin_Percentage FROM superstore;
+
+-- B) Sales Analysis 
+
+# Total Sales by Year
+select year(Order_date_temp) as year, round(sum(Sales),0)
+from superstore
+group by year(Order_date_temp);
+
+# Total sales by Month 
+
+SELECT CONCAT(EXTRACT(YEAR FROM STR_TO_DATE(Order_date, '%d-%m-%Y')), ' ',
+LPAD(EXTRACT(MONTH FROM STR_TO_DATE(Order_date, '%d-%m-%Y')), 2, '0')) AS yearmonth , round(sum(Sales),0)
+from superstore
+group by CONCAT(EXTRACT(YEAR FROM STR_TO_DATE(Order_date, '%d-%m-%Y')), ' ',
+LPAD(EXTRACT(MONTH FROM STR_TO_DATE(Order_date, '%d-%m-%Y')), 2, '0')) 
+order by yearmonth asc;
+
+# Total sales by Region 
+
+select Region , round(sum(Sales),0) as total_Sales
+from superstore 
+group by Region
+order by total_sales;
+
+-- C)  Product Performance
+
+# Top 10 Products by Sales
+
+select Product_Name, Round((Sales*Quantity),0) as Gross_revenue 
+from superstore 
+order by Gross_revenue desc
+limit 10;
+
+# Top 2 Categories/Sub-Categories by Profit and Gross revenue
+
+select * from 
+(select Category, Sub_Category, Round((Sales*Quantity),0) as Gross_revenue , Profit,
+dense_rank() over(partition by Category order by Round((Sales*Quantity),0) desc, Profit desc) as dense_desc
+from superstore ) as t
+where dense_desc <= 2;
+
+# Average prodcuts Per Order 
+
+SELECT Category, CAST(CAST(SUM(Quantity) AS DECIMAL(10,2)) / 
+CAST(COUNT(DISTINCT Order_id) AS DECIMAL(10,2)) AS DECIMAL(10,2))
+AS Avg_Products_per_order          
+FROM superstore
+group by category;
+
+# % of Sales by Category and sub-category
+
+SELECT Category, Sub_category, CAST(SUM(Sales) AS DECIMAL(10,2)) as total_revenue,
+CAST(SUM(Sales) * 100 / (SELECT SUM(Sales) from superstore) AS DECIMAL(10,2)) AS PCT    
+FROM superstore
+GROUP BY Category, Sub_category
+order by Category asc;
+
+-- D. Shipping & Delivery Insights
+
+# Average Delivery Time (in days)
+
+SELECT ROUND(AVG(DATEDIFF(Ship_date_temp, Order_date_temp)), 2) AS Avg_Delivery_Days
+FROM superstore;
+
+# Ship Mode Performance
+
+SELECT Ship_Mode, count(*) as total_orders,  ROUND(SUM(Sales * Quantity), 0) AS Gross_revenue
+FROM superstore
+GROUP BY Ship_Mode
+ORDER BY Gross_revenue DESC;
+
+-- E. Customer Insights
+
+#Top 10 Customers by Sales
+
+select Customer_Name, Customer_id, ROUND(SUM(Sales * Quantity), 0) AS Gross_revenue
+from superstore 
+group by Customer_Name, Customer_id
+order by Gross_revenue desc
+limit 10;
+
+#Customer Segmentation by Segment
+
+select Segment, count(distinct Customer_id) as total_customers, ROUND(SUM(Sales * Quantity), 0) AS Gross_revenue, 
+sum(Quantity) as total_qty
+from superstore 
+group by Segment;
+
+-- F. Region-wise, Country-wise and State-wise Avg Profit 
+
+select * from
+(select Region, Country, State, Round(avg(Profit),0) as avg_profit,
+dense_rank() over (partition by Region order by Round(avg(Profit),0) desc) as dense_rnk
+from superstore
+group by Region, Country, State) as m 
+where dense_rnk <=2;
+
+# Segment wise avg Profit 
+
+SELECT Segment, Round(avg(Profit),0) AS avg_Profit
+FROM superstore
+group by Segment
+order by avg_profit desc;
+
+# Ship mode wise avg Profit 
+
+SELECT Ship_mode, Round(avg(Profit),0) AS avg_Profit
+FROM superstore
+group by Ship_mode
+order by avg_profit desc;
+
+-- G. Returns/Negative Profit
+
+SELECT Category, Sub_category, Product_name, Profit
+FROM superstore
+WHERE Profit < 0
+ORDER BY Category ASC;
