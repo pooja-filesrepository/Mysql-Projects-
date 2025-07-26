@@ -53,6 +53,7 @@ SET Ship_date_temp = STR_TO_DATE(Order_date, '%d-%m-%Y');
 ALTER TABLE superstore 
 DROP PRIMARY KEY;
 
+
 -- 5. Do some preliminary Analysis on the dataset
 
 # check for duplicate primary key 
@@ -95,6 +96,7 @@ select sum(Profit) as total_profit from superstore;
 # Profit Margin (%)
 SELECT ROUND(SUM(Profit)/SUM(Sales)*100, 2) AS Profit_Margin_Percentage FROM superstore;
 
+
 -- B) Sales Analysis 
 
 # Total Sales by Year
@@ -117,6 +119,7 @@ select Region , round(sum(Sales),0) as total_Sales
 from superstore 
 group by Region
 order by total_sales;
+
 
 -- C)  Product Performance
 
@@ -151,6 +154,7 @@ FROM superstore
 GROUP BY Category, Sub_category
 order by Category asc;
 
+
 -- D. Shipping & Delivery Insights
 
 # Average Delivery Time (in days)
@@ -182,6 +186,7 @@ sum(Quantity) as total_qty
 from superstore 
 group by Segment;
 
+
 -- F. Region-wise, Country-wise and State-wise Avg Profit 
 
 select * from
@@ -211,3 +216,44 @@ SELECT Category, Sub_category, Product_name, Profit
 FROM superstore
 WHERE Profit < 0
 ORDER BY Category ASC;
+
+
+-- 7 Some more detailed insights - 
+
+# Sales Growth Rate Year over year 
+
+SELECT YEAR(Order_date_temp) AS Year, ROUND(SUM(Sales), 2) AS Sales,
+ROUND((SUM(Sales) - LAG(SUM(Sales)) OVER (ORDER BY YEAR(Order_date_temp))) / 
+LAG(SUM(Sales)) OVER (ORDER BY YEAR(Order_date_temp)) * 100, 2) AS YoY_Growth_Percent
+FROM superstore
+GROUP BY YEAR(Order_date_temp);
+
+# Repeat vs New Customers
+
+SELECT Category, Sub_Category, Product_name, ROUND(AVG(Discount), 2) AS Avg_Discount, ROUND(AVG(Profit), 2) AS Avg_Profit,
+CASE WHEN AVG(Profit) < 0 THEN 'Unprofitable'
+	WHEN AVG(Profit) BETWEEN 0 AND 50 THEN 'Low Margin'
+	ELSE 'Profitable'
+    END AS Profitability_Category
+FROM superstore
+GROUP BY ROUND(Discount, 1), Category, Sub_Category, Product_name
+ORDER BY Avg_Discount;
+
+# Market Basket Analysis (Frequent Product Pairs) What products are commonly bought together?
+
+SELECT a.Product_name AS Product_A, b.Product_name AS Product_B, COUNT(*) AS Frequency
+FROM superstore a
+JOIN superstore b ON a.Order_id = b.Order_id AND a.Product_name < b.Product_name
+GROUP BY Product_A, Product_B
+ORDER BY Frequency DESC
+LIMIT 10;
+
+# Delayed Shipments Detection Orders with delivery delay over SLA (say > 5 days)
+
+SELECT Order_id, Customer_name, Order_date, Ship_date, DATEDIFF(Ship_date, Order_date) AS Delivery_Days
+FROM superstore
+ORDER BY Delivery_Days DESC;
+
+
+
+
