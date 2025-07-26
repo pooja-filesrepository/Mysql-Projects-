@@ -5,7 +5,7 @@ create database aircargo;
 use aircargo;
 select database();
 
--- 2 Write a query to create 4 tables such as customer, pof, routes, ticket_details using suitable data types for the fields and insert the data using import wizard.
+-- 2 Write a query to create 4 tables such as customer, passengers_on_flights, routes, ticket_details using suitable data types for the fields and insert the data using import wizard.
 Implement the required check constraint and unique constraint.  
 
 drop table if exists customer;
